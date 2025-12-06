@@ -1,117 +1,89 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:menuweb/firebase_options.dart';
+import 'package:menuweb/AppColors/AppColors.dart';
+import 'package:menuweb/MenuPage/assets/route_generator.dart';
+import 'package:menuweb/generated/l10n.dart';
+import 'firebase_options.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Hive.initFlutter();
+  await Hive.openBox('local_cache');
+  await Hive.openBox('cart_box'); // صندوق السلة
+  await Hive.openBox('menu_cache'); // صندوق السلة
+
   runApp(const MenuApp());
 }
 
-class MenuApp extends StatelessWidget {
+class MenuApp extends StatefulWidget {
   const MenuApp({super.key});
 
+  static _MenuAppState of(BuildContext context) =>
+      context.findAncestorStateOfType<_MenuAppState>()!;
+
+  @override
+  State<MenuApp> createState() => _MenuAppState();
+}
+
+class _MenuAppState extends State<MenuApp> {
+  Locale _locale = const Locale('ar');
+  bool _isDark = false;
+
+  @override
+  void initState() {
+    // تحميل الثيم واللغة من Hive
+    final box = Hive.box('local_cache');
+    final savedLang = box.get('locale');
+    final savedTheme = box.get('theme_dark');
+
+    if (savedLang != null) _locale = Locale(savedLang);
+    if (savedTheme != null) _isDark = savedTheme;
+
+    super.initState();
+  }
+
+  // تغيير اللغة
+  void setLocale(Locale locale) {
+    Hive.box('local_cache').put('locale', locale.languageCode);
+    setState(() => _locale = locale);
+  }
+
+  // تغيير الثيم
+  void toggleTheme() {
+    _isDark = !_isDark;
+    Hive.box('local_cache').put('theme_dark', _isDark);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
+      locale: _locale,
       debugShowCheckedModeBanner: false,
-      home: MenuPage(),
-    );
-  }
-}
+      supportedLocales: S.delegate.supportedLocales,
+      localizationsDelegates: const [
+        S.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
 
-class MenuPage extends StatefulWidget {
-  const MenuPage({super.key});
-
-  @override
-  State<MenuPage> createState() => _MenuPageState();
-}
-
-class _MenuPageState extends State<MenuPage> {
-  String? storeId;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // قراءة storeId من الرابط
-    final uri = Uri.base; // ex: https://domain.com/menu/cafemoka
-    if (uri.pathSegments.isNotEmpty && uri.pathSegments.first == "menu") {
-      setState(() {
-        storeId = uri.pathSegments.length > 1 ? uri.pathSegments[1] : null;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (storeId == null) {
-      return const Scaffold(body: Center(child: Text("لم يتم تحديد مطعم")));
-    }
-
-    final storeRef = FirebaseFirestore.instance
-        .collection("menus")
-        .doc(storeId);
-
-    return Scaffold(
-      appBar: AppBar(title: Text("منيو: $storeId"), centerTitle: true),
-      body: FutureBuilder<DocumentSnapshot>(
-        future: storeRef.get(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text("المطعم غير موجود"));
-          }
-
-          final storeData = snapshot.data!.data() as Map<String, dynamic>;
-          final name = storeData["name"] ?? "مطعم";
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: storeRef.collection("items").snapshots(),
-                  builder: (context, itemsSnap) {
-                    if (itemsSnap.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (!itemsSnap.hasData || itemsSnap.data!.docs.isEmpty) {
-                      return const Center(
-                        child: Text("لا يوجد عناصر في المنيو"),
-                      );
-                    }
-
-                    return ListView(
-                      children: itemsSnap.data!.docs.map((doc) {
-                        final item = doc.data() as Map<String, dynamic>;
-                        return ListTile(
-                          title: Text(item["name"] ?? "بدون اسم"),
-                          trailing: Text(
-                            "${item["price"] ?? 0} \$",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        },
+      // ❤️ ربط الثيم هنا
+      theme: ThemeData(
+        brightness: Brightness.light,
+        extensions: const [lightAppColors],
       ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        extensions: const [darkAppColors],
+      ),
+      themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
+
+      initialRoute: "/",
+      onGenerateRoute: RouteGenerator.generateRoute,
     );
   }
 }
