@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:menuweb/AppColors/AppColors.dart';
-import 'package:menuweb/MenuPage/assets/route_generator.dart';
+
+import 'package:menuweb/menu/MenuPage/assets/route_generator.dart';
 import 'package:menuweb/generated/l10n.dart';
 import 'firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -12,8 +13,8 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await Hive.initFlutter();
   await Hive.openBox('local_cache');
-  await Hive.openBox('cart_box'); // صندوق السلة
-  await Hive.openBox('menu_cache'); // صندوق السلة
+  await Hive.openBox('cart_box');
+  await Hive.openBox('menu_cache');
 
   runApp(const MenuApp());
 }
@@ -31,10 +32,9 @@ class MenuApp extends StatefulWidget {
 class _MenuAppState extends State<MenuApp> {
   Locale _locale = const Locale('ar');
   bool _isDark = false;
-
+  Locale get locale => _locale;
   @override
   void initState() {
-    // تحميل الثيم واللغة من Hive
     final box = Hive.box('local_cache');
     final savedLang = box.get('locale');
     final savedTheme = box.get('theme_dark');
@@ -45,13 +45,11 @@ class _MenuAppState extends State<MenuApp> {
     super.initState();
   }
 
-  // تغيير اللغة
   void setLocale(Locale locale) {
     Hive.box('local_cache').put('locale', locale.languageCode);
     setState(() => _locale = locale);
   }
 
-  // تغيير الثيم
   void toggleTheme() {
     _isDark = !_isDark;
     Hive.box('local_cache').put('theme_dark', _isDark);
@@ -71,14 +69,15 @@ class _MenuAppState extends State<MenuApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
 
-      // ❤️ ربط الثيم هنا
       theme: ThemeData(
         brightness: Brightness.light,
-        extensions: const [lightAppColors],
+        scaffoldBackgroundColor: AppColors.light.background,
+        extensions: const [AppColors.light],
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
-        extensions: const [darkAppColors],
+        scaffoldBackgroundColor: AppColors.dark.background,
+        extensions: const [AppColors.dark],
       ),
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
 

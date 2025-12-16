@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:menuweb/MenuPage/defaultmenu/service/MenuServicePage.dart';
+import 'package:menuweb/menu/MenuPage/defaultmenu/service/MenuServicePage.dart';
 
 class MenuLoaderPage extends StatefulWidget {
   const MenuLoaderPage({super.key});
